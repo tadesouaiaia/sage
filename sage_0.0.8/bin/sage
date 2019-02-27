@@ -1,0 +1,201 @@
+#!/usr/bin/env python2.7
+#from src.Rage import Rage
+#from collections import defaultdict as dd
+#import pickle
+
+from subprocess import call
+
+
+def input_error(msg):
+	sys.stderr.write(msg+'\n')
+	sys.exit() 
+
+
+
+
+
+	
+
+########################################################################################################################################################################
+
+if __name__ == '__main__':
+
+	import sys,os,argparse,shutil
+				
+	class LineWrapRawTextHelpFormatter(argparse.RawDescriptionHelpFormatter):
+    		def _split_lines(self, text, width):
+        		text = self._whitespace_matcher.sub(' ', text).strip()
+
+        		return _textwrap.wrap(text, width)	
+        		#return _textwrap.wrap(text, width)	
+
+
+
+	class MyParser(argparse.ArgumentParser):
+		#formatter_class=argparse.RawTextHelpFormatteri
+		formatter_class=LineWrapRawTextHelpFormatter
+    		def error(self, detail=None,values=None,choice=None):
+			
+			if not detail: self.print_help()
+
+			elif detail and values and choice:
+				sys.stderr.write(str('InvalidOption:\n'))
+				sys.stderr.write(str(values+" "+" ".join(choice)+'\n'))
+				sys.stderr.write(str(detail)+'\n')
+
+        			self.print_help()
+			elif detail:
+				sys.stderr.write(str(detail)+'\n')
+				self.print_help()
+
+        		sys.exit(2)
+	
+	parser=MyParser(formatter_class=argparse.RawTextHelpFormatter)
+#	parser=MyParser(formatter_class=LineWrapRawTextHelpFormatter)
+	parser.set_defaults(dataset=None)
+	help_format="%-40s %40s"
+	sub_format="%-40s %40s"
+	subs = parser.add_subparsers(help=(help_format % ('Command','Description')),dest='option',title='Commands') 
+	sub_help = (help_format % ('Description','Example'))
+
+
+########################################################################################################################################################################
+########################################################################################################################################################################
+# GLOBAL PARENT OPTIONS ###############################################################################################################################################
+	
+	#Run = MyParser(add_help=False)
+	#Paths.add_argument('--counts',type=argparse.FileType('r'),default=None,help='foo') 
+	#Run.add_argument('--runpath', dest='runpath',action='store',type=str,default=None,help='Min and Max group size for k-cluster (eg. 3,10 )')
+	#from argparse import RawTextHelpFormatter
+	#parser = ArgumentParser(description='test', formatter_class=RawTextHelpFormatter)
+
+	Paths = MyParser(add_help=False)
+	Paths.add_argument('--outpath', dest='outpath',action='store',type=str,default=None,help='Output path for sage to run in (default local folder created)')
+	Paths.add_argument('--verbose',action='store_true', dest='verbose',default=False,help='Talkative?')
+	Paths.add_argument('--local',action='store_true', dest='local',default=False,help='Local Enviroment')
+	Paths.add_argument('--prefix', dest='prefix',action='store',type=str,default='sage',help='Output Prefix for Files')
+#	Paths.add_argument('--test',action='store_true', dest='test',default=False,help='Talkative?')
+	Paths.add_argument('--cores', dest='cores',action='store',type=int,default=0,help='By default sage will run in parralel using (n-1) cores.  Set value to 1 if not desired')
+	Paths.add_argument( '--readlen', dest='readlen',action='store',type=int,default=100,help='Read length')
+	command_parsers = {} 
+	
+
+	Annotate = MyParser(add_help=False)
+	Annotate.add_argument('--chrs', dest='chrs',action='store',required=True,type=str,default=None,help='Directory containing ref chromosomes')
+	Annotate.add_argument('--printGeneSeqs',action='store_true', dest='print_gene_seqs',default=False,help='Print Full Gene Seqs')
+	Annotate.add_argument('--gtf',type=argparse.FileType('r'),required=True,default=None,help='Path to gtf file') 
+	annotate_help = (help_format % ('genome','Annotate and index gtf annotation and genome reference'))
+	annotate = subs.add_parser('annotate',help=annotate_help).add_subparsers(help='genome',dest='command',title="Commands")
+	genome   = annotate.add_parser('genome',parents=[Paths,Annotate], help='./sage annotate genome --gtf my.gtf --chrs my_chrs')
+
+
+
+#    	Filters.add_argument("-s", "--strictness", default = 3, type=int, help="Output Filename Prefix")
+    	# Filters.add_argument("--threePrimeAdaptors",dest='threePrimeAdaptors',action='store',default ="AGATCGGAAGAGCACACGT,GTATGCCGTCTTCTGCTTG",type=str,help='three prime adaptor seqs',metavar='') #original
+    	# Filters.add_argument("--fivePrimeAdaptors",dest='fivePrimeAdaptors',action='store',default ="ACACTCTTTCCCTA,CACGACGCTCTTCCGATCA",type=str,help='five prime adaptor seqs',metavar='') #original
+    	#Filters.add_argument("--threePrimeAdaptors",dest='threePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTCCGAGCCCACGAGAC,GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG",type=str,help='three prime adaptor seqs',metavar='')
+    	#Filters.add_argument("--fivePrimeAdaptors",dest='fivePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTGACGCTGCCGACGA,TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG",type=str,help='five prime adaptor seqs',metavar='')
+    	#Filters.add_argument("--threePrimeAdaptors",dest='threePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTCCGAGCCCACGAGAC,GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG",type=str,help='three prime adaptor seqs',metavar='')
+    	#Filters.add_argument("--fivePrimeAdaptors",dest='fivePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTGACGCTGCCGACGA,TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG",type=str,help='five prime adaptor seqs',metavar='')
+
+	Filters = MyParser(add_help=False)
+    	Filters.add_argument("-t", "--trimLengths", dest='trimLengths',default = [70],nargs=1, help="A trim length less than that of the readlength (default 100,70)",metavar='')
+    	Filters.add_argument("--threePrimeAdaptors",dest='threePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTCCGAGCCCACGAGAC,GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG",type=str,help='three prime adaptor seqs',metavar='')
+    	Filters.add_argument("--fivePrimeAdaptors",dest='fivePrimeAdaptors',action='store',default ="CTGTCTCTTATACACATCTGACGCTGCCGACGA,TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG",type=str,help='five prime adaptor seqs',metavar='')	
+	Filters.add_argument('--reads',dest='reads',type=argparse.FileType('r'),required=True,default=None,help='Path to fastq file or fastq.gz file') 
+
+
+	filter_help = (help_format % ('reads','Filter And Prepare Read Data            '))
+	qc = subs.add_parser('qc',help=filter_help).add_subparsers(help='',dest='command',title="Commands")
+	reads   = qc.add_parser('reads',parents=[Paths,Filters], help='./sage qc reads  --reads my_reads.fastq.gzs')
+
+
+	Align = MyParser(add_help=False)
+	Align.add_argument('--refconfig',dest='refconfig',type=argparse.FileType('r'),required=True,default=None,help='Path to reference config file') 
+	Align.add_argument('--readconfig',dest='readconfig',type=argparse.FileType('r'),required=True,default=None,help='Path to read config file') 
+	align_help = (help_format % ('fastq','Perform iterative alignment to multiple references'))
+	align = subs.add_parser('align',help=align_help).add_subparsers(help='',dest='command',title="Commands")
+	fastq   = align.add_parser('fastq',parents=[Paths,Align], help='./sage align fastq --refconfig myref.config --readconfig myread.config')
+
+	Quantify = MyParser(add_help=False)
+    	Quantify.add_argument("--mapdir",dest='mapdir',action='store',default = None, required = True, type = str, help = 'Path to mapping directory') 
+	Quantify.add_argument('--refconfig',dest='refconfig',type=argparse.FileType('r'),required=True,default=None,help='Path to reference config file') 
+	Quantify.add_argument('--subdist', dest='subdist',action='store',type=int,default=8,help='Min allowed distance for next best alignment to take top')
+	quantify_help = (help_format % ('mapping','Quantify expression of genes, isoforms, and novel splice sites'))
+	quantify = subs.add_parser('quantify',help=quantify_help).add_subparsers(help='',dest='command',title="Commands")
+	mapping   = quantify.add_parser('mapping',parents=[Paths,Quantify], help='./sage quantify mapping --mapdir rh1_maps')
+
+
+	Easyrun = MyParser(add_help=False)
+#	Easyrun.add_argument('--parent', dest='parentpath',action='store',type=str,default=None,help='Min and Max group size for k-cluster (eg. 3,10 )')
+ #   	Easyrun.add_argument("-s", "--strictness", default = 3, type=int, help="Output Filename Prefix")
+#    	Easyrun.add_argument("--threePrimeAdaptors",dest='threePrimeAdaptors',action='store',default ="AGATCGGAAGAGCACACGT,GTATGCCGTCTTCTGCTTG",type=str,help='three prime adaptor seqs')
+ #   	Easyrun.add_argument("--fivePrimeAdaptors",dest='fivePrimeAdaptors',action='store',default ="ACACTCTTTCCCTA,CACGACGCTCTTCCGATCA",type=str,help='five prime adaptor seqs')
+#	Easyrun.add_argument('--reads',dest='reads',type=argparse.FileType('r'),required=True,default=None,help='foo') 
+ #   	Easyrun.add_argument("-t", "--trimLengths", dest='trimLengths',default = [64],nargs='+', help="Trimmable Lengths")
+#	Easyrun.add_argument('--readconfig',dest='readconfig',type=argparse.FileType('r'),required=None,default=None,help='foo') 
+	Easyrun.add_argument('--refconfig',dest='refconfig',type=argparse.FileType('r'),required=True,default=None,help='foo') 
+	Easyrun.add_argument('--subdist', dest='subdist',action='store',type=int,default=8,help='Min allowed distance for next best alignment to take top')
+	easy_help = (help_format % ('go','Perform read qc, read alignment, and gene quantification in succession'))
+	easyrun = subs.add_parser('easyrun',help=easy_help).add_subparsers(help='',dest='command',title="Commands")
+	go   = easyrun.add_parser('go',parents=[Paths,Filters,Easyrun], help='./sage easyrun go --refconfig myrefconfig --reads myreads.fastq')
+
+
+
+
+
+
+
+
+
+
+
+
+########################################################################################################################################################################
+########################################################################################################################################################################
+# RUN                          #########################################################################################################################################
+
+#	os.path.abspath() 
+
+	args = parser.parse_args()
+	from src.Sage import Sage
+
+
+	sagedir = "/".join(os.path.abspath(sys.argv[0]).split('/')[0:-1])
+	cwd = os.getcwd()
+	sage = Sage(args,sagedir,cwd)
+	sys.exit()
+	if args.option == 'easyrun':
+		args.option, args.command, args.outpath,args.prefix = 'qc','reads', cwd+'/qc', 'sage'
+		sage = Sage(args,sagedir,cwd) 
+		args.option, args.command, args.outpath, args.readconfig = 'align','genome', cwd+'/mapping', cwd+'/qc/sage.reads'
+		sage = Sage(args,sagedir,cwd)
+		args.option, args.command, args.outpath,args.mapdir      = 'quantify','mapping',cwd+'/parse',cwd+'/mapping'
+		sage = Sage(args,sagedir,cwd) 
+		
+
+
+	else:
+		sage = Sage(args,sagedir,cwd)
+
+
+	sys.exit() 
+
+
+			
+	
+
+
+
+		
+
+
+
+
+
+
+
+
+
+
+
